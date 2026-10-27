@@ -6,10 +6,12 @@ blueprint:
   switch mode.\n\n
   The module has to be paired with ZHA and its switch mode has to be set to
   DoubleRocker (attribute 0x0034 of the manufacturer specific Basic cluster).\n\n
-  In DoubleRocker mode the module reports the new rocker position as an On or
-  Off command, followed about 350 ms later by a short release of the left or
-  right button. This blueprint combines the two. Which physical direction is
-  'on' depends on how the rocker switch is mounted, so flip it once to find out.
+  In DoubleRocker mode every flip of a rocker makes the module send four ZHA
+  events: an on_off attribute update, an On or Off command, a button press and,
+  about 350 ms after the command, a button short release. This blueprint uses
+  the On or Off command for the position and the short release for the side
+  (left or right) and combines the two. Which physical direction is 'on'
+  depends on how the rocker switch is mounted, so flip it once to find out.
   "
   domain: automation
   source_url: https://raw.githubusercontent.com/marcdejonge/home-assistant-blueprints/main/hue-wall-module-rocker.yaml
@@ -52,7 +54,7 @@ blueprint:
       selector:
         action:
 
-mode: queued
+mode: parallel
 max: 5
 
 trigger:
@@ -87,7 +89,7 @@ action:
           command: right_short_release
         id: right_rocker
     timeout:
-      seconds: 2
+      seconds: 1
     continue_on_timeout: false
 
   - variables:
