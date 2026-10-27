@@ -1,0 +1,112 @@
+blueprint:
+  name: Philips Hue Wall Module - Double Rocker
+  description: "# Philips Hue Wall Module (RDM004) - Double Rocker mode\n
+  Runs a separate action for each position of the left and right rocker of the
+  Philips Hue Wall Module, when the module is configured in the DoubleRocker
+  switch mode.\n\n
+  The module has to be paired with ZHA and its switch mode has to be set to
+  DoubleRocker (attribute 0x0034 of the manufacturer specific Basic cluster).\n\n
+  In DoubleRocker mode the module reports the new rocker position as an On or
+  Off command, followed about 350 ms later by a short release of the left or
+  right button. This blueprint combines the two. Which physical direction is
+  'on' depends on how the rocker switch is mounted, so flip it once to find out.
+  "
+  domain: automation
+  source_url: https://raw.githubusercontent.com/marcdejonge/home-assistant-blueprints/main/hue-wall-module-rocker.yaml
+  input:
+    remote:
+      name: Remote
+      description: Signify wall module to use
+      selector:
+        device:
+          filter:
+            - integration: zha
+              manufacturer: Signify Netherlands B.V.
+              model: RDM004
+
+    left_rocker_on:
+      name: Left rocker on
+      description: Action to run when the left rocker is flipped to the on position
+      default: []
+      selector:
+        action:
+
+    left_rocker_off:
+      name: Left rocker off
+      description: Action to run when the left rocker is flipped to the off position
+      default: []
+      selector:
+        action:
+
+    right_rocker_on:
+      name: Right rocker on
+      description: Action to run when the right rocker is flipped to the on position
+      default: []
+      selector:
+        action:
+
+    right_rocker_off:
+      name: Right rocker off
+      description: Action to run when the right rocker is flipped to the off position
+      default: []
+      selector:
+        action:
+
+mode: queued
+max: 5
+
+trigger:
+  - platform: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      cluster_id: 6
+      command: "on"
+    id: rocker_on
+
+  - platform: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      cluster_id: 6
+      command: off_with_effect
+    id: rocker_off
+
+action:
+  - wait_for_trigger:
+      - platform: event
+        event_type: zha_event
+        event_data:
+          device_id: !input remote
+          command: left_short_release
+        id: left_rocker
+      - platform: event
+        event_type: zha_event
+        event_data:
+          device_id: !input remote
+          command: right_short_release
+        id: right_rocker
+    timeout:
+      seconds: 2
+    continue_on_timeout: false
+
+  - variables:
+      flipped_rocker: "{{ wait.trigger.id }}"
+      flipped_position: "{{ trigger.id }}"
+
+  - choose:
+      - conditions:
+          - "{{ flipped_rocker == 'left_rocker' and flipped_position == 'rocker_on' }}"
+        sequence: !input left_rocker_on
+
+      - conditions:
+          - "{{ flipped_rocker == 'left_rocker' and flipped_position == 'rocker_off' }}"
+        sequence: !input left_rocker_off
+
+      - conditions:
+          - "{{ flipped_rocker == 'right_rocker' and flipped_position == 'rocker_on' }}"
+        sequence: !input right_rocker_on
+
+      - conditions:
+          - "{{ flipped_rocker == 'right_rocker' and flipped_position == 'rocker_off' }}"
+        sequence: !input right_rocker_off
