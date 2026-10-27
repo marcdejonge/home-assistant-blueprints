@@ -1,0 +1,123 @@
+blueprint:
+  name: Philips Hue Wall Module - Rocker Pair (hotel switch)
+  description: "# Philips Hue Wall Module (RDM004) - Rocker Pair\n
+  Combines one rocker of two Philips Hue Wall Modules (or two rockers of the
+  same module) into a hotel switch: a flip of either rocker toggles a shared
+  on/off state, and the matching 'on' or 'off' action runs.\n\n
+  The shared state is an input_boolean helper that you create yourself
+  (Settings > Devices & services > Helpers > Toggle). Because the helper is
+  toggled on every flip, it does not matter in which position either rocker
+  is, so the two switches can never get out of sync with each other.\n\n
+  Both modules have to be paired with ZHA and set to the DoubleRocker switch
+  mode. A flip is recognised by the 'short release' of the chosen button, so
+  two flips within about 300 ms count as a double press and are ignored.\n\n
+  The helper only follows the flips. If an action fails, for example because a
+  light did not respond, the helper can disagree with the real state of the
+  light until the next flip.
+  "
+  domain: automation
+  source_url: https://raw.githubusercontent.com/marcdejonge/home-assistant-blueprints/main/hue-wall-module-rocker-pair.yaml
+  input:
+    first_remote:
+      name: First remote
+      description: First Signify wall module
+      selector:
+        device:
+          filter:
+            - integration: zha
+              manufacturer: Signify Netherlands B.V.
+              model: RDM004
+
+    first_rocker:
+      name: First rocker
+      description: Rocker of the first remote to use
+      default: left_short_release
+      selector:
+        select:
+          options:
+            - label: Left rocker
+              value: left_short_release
+            - label: Right rocker
+              value: right_short_release
+
+    second_remote:
+      name: Second remote
+      description: Second Signify wall module
+      selector:
+        device:
+          filter:
+            - integration: zha
+              manufacturer: Signify Netherlands B.V.
+              model: RDM004
+
+    second_rocker:
+      name: Second rocker
+      description: Rocker of the second remote to use
+      default: left_short_release
+      selector:
+        select:
+          options:
+            - label: Left rocker
+              value: left_short_release
+            - label: Right rocker
+              value: right_short_release
+
+    shared_state:
+      name: Shared state
+      description: Toggle helper (input_boolean) that remembers the state of the hotel switch
+      selector:
+        entity:
+          filter:
+            - domain: input_boolean
+
+    actions_when_turned_on:
+      name: Actions when turned on
+      description: Actions to run when a flip switches the shared state to on
+      default: []
+      selector:
+        action:
+
+    actions_when_turned_off:
+      name: Actions when turned off
+      description: Actions to run when a flip switches the shared state to off
+      default: []
+      selector:
+        action:
+
+mode: queued
+max: 5
+
+trigger:
+  - platform: event
+    event_type: zha_event
+    event_data:
+      device_id: !input first_remote
+      command: !input first_rocker
+
+  - platform: event
+    event_type: zha_event
+    event_data:
+      device_id: !input second_remote
+      command: !input second_rocker
+
+action:
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: !input shared_state
+            state: "off"
+        sequence:
+          - service: input_boolean.turn_on
+            target:
+              entity_id: !input shared_state
+          - sequence: !input actions_when_turned_on
+
+      - conditions:
+          - condition: state
+            entity_id: !input shared_state
+            state: "on"
+        sequence:
+          - service: input_boolean.turn_off
+            target:
+              entity_id: !input shared_state
+          - sequence: !input actions_when_turned_off
